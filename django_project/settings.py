@@ -27,9 +27,11 @@ SECRET_KEY = os.environ["SECRET_KEY"]
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['89.108.77.209', 'www.agweather.online', '127.0.0.1']
+# ALLOWED_HOSTS = []
 
 # Application definition
 
@@ -80,9 +82,17 @@ WSGI_APPLICATION = 'django_project.wsgi.application'
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 
 DATABASES = {
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.sqlite3',
+    #     'NAME': BASE_DIR / 'db.sqlite3',
+    # }
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'agweather_db',
+        'USER': 'anton',
+        'PASSWORD': '+$NYfAVsP+9m',
+        'HOST': 'localhost',
+        'PORT': '',
     }
 }
 
