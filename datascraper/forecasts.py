@@ -1,9 +1,18 @@
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
+import time
 import re
 import requests
 import os
 from dotenv import load_dotenv
+from fake_useragent import UserAgent
+# from pprint import pprint
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service as ChromeService
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium_stealth import stealth
+# from random import choice
+import zipfile
 
 
 ######################################
@@ -56,37 +65,39 @@ def rp5(start_datetime, url):
 def yandex(start_datetime, url):
 
     # Scraping html content from source
-    soup = get_soup(url)
-    ftab = soup.find('div', class_='content')
+    soup = get_soup_selenium(url)
+    ftab = soup.find('div', class_='sc-f83bbea-0 gyELnZ')
 
     # Parsing start date from source html page
     start_datetime = start_datetime.replace(hour=9, minute=0, second=0,
                                             microsecond=0)  # Morning
     start_date_from_source = func_start_date_from_source(
         month=month_rusname_to_number(ftab.find(
-            'span', class_='forecast-details__day-month').get_text()),
+            'span', class_='sc-b1913d4b-3 fEuQBg').get_text()),
         day=int(ftab.find(
-            'strong', class_='forecast-details__day-number').get_text()),
+            'span', class_='sc-b1913d4b-1 ePbffO').get_text()),
         req_start_datetime=start_datetime
     )
 
     # Parsing weather parameters rows from source:
     # Temperature
-    temp_row = ftab.find_all('div', class_='weather-table__temp')
-    temp_row = [t.get_text() for t in temp_row]
+    temp_row = ftab.find_all('div', class_='sc-e9667f21-0 gKfmfO')
+    temp_row = [t.div.next_sibling for t in temp_row]
     # Conversion of the temperature of the form "+6...+8"
     # to the average value
-    temp_row = [t.replace(chr(8722), '-').split('…') for t in temp_row]
+    temp_row = [t.replace(chr(8722), '-').replace('°', '').split('...')
+                for t in temp_row]
     temp_row = [[int(i) for i in t] for t in temp_row]
     temp_row = [int(round(sum(t)/len(t))) for t in temp_row]
+
     # Pressure
-    press_row = ftab.find_all('td', class_='weather-table__' +
-                              'body-cell_type_air-pressure')
-    press_row = [int(p.get_text()) for p in press_row]
+    ftab = ftab.find_all('div', class_='sc-e9667f21-0 hJBgFV')
+    press_row = [int(p.get_text()) for p in ftab[1::5]]
+
     # Wind velocity
-    wind_vel_row = ftab.find_all('span', class_="wind-speed")
-    wind_vel_row = [int(round(float(w.get_text().replace(',', '.')), 0))
-                    for w in wind_vel_row]
+    wind_vel_row = [w.contents[0].replace(',', '.') for w in ftab[3::5]]
+    wind_vel_row = [int(round(float(w), 0)) for w in wind_vel_row]
+
     # Merge parameters from source into one tuple
     raw_data = (temp_row, press_row, wind_vel_row)
 
@@ -122,7 +133,7 @@ def meteoinfo(start_datetime, url):
     # Wind velocity
     wind_vel_row = ftab.find_all('i')
     press_row = wind_vel_row[:]
-    wind_vel_row = [int(w.next_sibling.get_text()) for w in wind_vel_row]
+    wind_vel_row = [int(w.parent.get_text()) for w in wind_vel_row]
     # Pressure
     press_row = [int(p.parent.next_sibling.get_text()) for p in press_row]
 
@@ -201,34 +212,54 @@ def foreca(start_datetime, url: str):
 # MISC #
 ########
 
+# list of random proxies
+proxies = []
 
-def get_soup(url):
+
+def get_soup(url, archive_payload=False):
     """Scraping html content from source with the help of Selenium library"""
+    global proxies
 
-    headers = {
-        'Accept': '*/*',
-        # 'Referer': 'https://rp5.ru/',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/\
-            537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-    }
+    if not proxies:
+        get_proxies()
 
-    load_dotenv()
-    PROXY = os.environ["PROXY"]
-    proxies = {
-        'https': PROXY
-    }
+    headers = {'Accept': '*/*', 'User-Agent': UserAgent().random}
 
-    response = requests.get(
-        url=url,
-        # cookies=cookies,
-        headers=headers,
-        proxies=proxies,
-        timeout=10
-    )
+    proxy = proxies[datetime.now().day % len(proxies)]
+    proxy = f'https://{proxy[2]}:{proxy[3]}@{proxy[0]}:{proxy[1]}'
+
+    if not archive_payload:
+        response = requests.get(
+            url=url,
+            # url='https://yandex.ru/internet',
+            headers=headers,
+            # proxies=proxies,
+            proxies={'https': proxy},
+            timeout=10
+        )
+
+    else:
+        headers['Referer'] = 'https://rp5.ru/'
+        response = requests.post(
+            url=url,
+            # cookies=cookies,
+            headers=headers,
+            data=archive_payload,
+            proxies={'https': proxy},
+            timeout=10
+        )
 
     src = response.text
-
     return BeautifulSoup(src, "lxml")
+
+
+def get_proxies():
+    """Scraping random proxy list"""
+    # print('get_proxies called!!!')
+    global proxies
+    load_dotenv()
+    proxies = os.environ["PROXIES"].split('\n')
+    proxies = [p.split(':') for p in proxies]
 
 
 def func_start_date_from_source(month, day, req_start_datetime):
@@ -296,3 +327,144 @@ def json_data_gen(start_datetime, start_date_from_source,
         datetime_ += datetime_step
 
     return data_json
+
+
+############
+# SELENIUM #
+############
+
+
+def get_soup_selenium(url):
+    """Scraping html content from source with the help of Selenium library"""
+
+    driver = init_selenium_driver()
+
+    driver.get(url=url)
+    # driver.get(url='https://yandex.ru/internet')
+    time.sleep(1)
+    src = driver.page_source
+
+    driver.close()
+    driver.quit()
+
+    return BeautifulSoup(src, "lxml")
+
+
+def init_selenium_driver():
+    """Selenium driver initialization"""
+
+    # create a new Service instance and specify path to Chromedriver executable
+    service = ChromeService(executable_path=ChromeDriverManager().install())
+
+    # create a ChromeOptions object
+    options = webdriver.ChromeOptions()
+    # run in headless mode
+    options.add_argument("--headless=new")
+    # disable the AutomationControlled feature of Blink rendering engine
+    options.add_argument('--disable-blink-features=AutomationControlled')
+    # disable pop-up blocking
+    options.add_argument('--disable-popup-blocking')
+    # start the browser window in maximized mode
+    options.add_argument('--start-maximized')
+    # disable extensions
+    # # options.add_argument('--disable-extensions')
+    # disable sandbox mode
+    options.add_argument('--no-sandbox')
+    # disable shared memory usage
+    options.add_argument('--disable-dev-shm-usage')
+
+    # proxy
+    global proxies
+    if not proxies:
+        get_proxies()
+    proxy = proxies[datetime.now().day % len(proxies)-4]
+
+    proxies_extension = selenium_proxy(proxy[2], proxy[3], proxy[0], proxy[1])
+    options.add_extension(proxies_extension)
+
+    # Waits for page to be interactive
+    options.page_load_strategy = 'eager'
+
+    # create a driver instance
+    driver = webdriver.Chrome(service=service, options=options)
+    # Change the property value of the navigator for webdriver to undefined
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', \
+                          {get: () => undefined})")
+
+    # pass in selected user agent as an argument
+    options.add_argument(f'user-agent={UserAgent().random}')
+
+    # enable stealth mode
+    stealth(driver,
+            languages=["en-US", "en"],
+            vendor="Google Inc.",
+            platform="Win32",
+            webgl_vendor="Intel Inc.",
+            renderer="Intel Iris OpenGL Engine",
+            fix_hairline=True,
+            )
+
+    return driver
+
+
+def selenium_proxy(username, password, endpoint, port):
+    manifest_json = """
+    {
+        "version": "1.0.0",
+        "manifest_version": 2,
+        "name": "Proxies",
+        "permissions": [
+            "proxy",
+            "tabs",
+            "unlimitedStorage",
+            "storage",
+            "<all_urls>",
+            "webRequest",
+            "webRequestBlocking"
+        ],
+        "background": {
+            "scripts": ["background.js"]
+        },
+        "minimum_chrome_version":"22.0.0"
+    }
+    """
+
+    background_js = """
+    var config = {
+            mode: "fixed_servers",
+            rules: {
+              singleProxy: {
+                scheme: "http",
+                host: "%s",
+                port: parseInt(%s)
+              },
+              bypassList: ["localhost"]
+            }
+          };
+
+    chrome.proxy.settings.set({
+        value: config, scope: "regular"}, function() {});
+
+    function callbackFn(details) {
+        return {
+            authCredentials: {
+                username: "%s",
+                password: "%s"
+            }
+        };
+    }
+
+    chrome.webRequest.onAuthRequired.addListener(
+                callbackFn,
+                {urls: ["<all_urls>"]},
+                ['blocking']
+    );
+    """ % (endpoint, port, username, password)
+
+    extension = 'proxies_extension.zip'
+
+    with zipfile.ZipFile(extension, 'w') as zp:
+        zp.writestr("manifest.json", manifest_json)
+        zp.writestr("background.js", background_js)
+
+    return extension
