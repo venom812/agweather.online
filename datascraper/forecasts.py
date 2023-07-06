@@ -359,7 +359,7 @@ def init_selenium_driver():
     # create a ChromeOptions object
     options = webdriver.ChromeOptions()
     # run in headless mode
-    options.add_argument("--headless=new")
+    options.add_argument("--headless")
     # disable the AutomationControlled feature of Blink rendering engine
     options.add_argument('--disable-blink-features=AutomationControlled')
     # disable pop-up blocking
@@ -385,14 +385,15 @@ def init_selenium_driver():
     # Waits for page to be interactive
     options.page_load_strategy = 'eager'
 
+    # pass in selected user agent as an argument
+    options.add_argument(f'user-agent={UserAgent().random}')
+
     # create a driver instance
     driver = webdriver.Chrome(service=service, options=options)
     # Change the property value of the navigator for webdriver to undefined
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', \
                           {get: () => undefined})")
 
-    # pass in selected user agent as an argument
-    options.add_argument(f'user-agent={UserAgent().random}')
 
     # enable stealth mode
     stealth(driver,
