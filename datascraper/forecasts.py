@@ -359,7 +359,7 @@ def init_selenium_driver():
     # create a ChromeOptions object
     options = webdriver.ChromeOptions()
     # run in headless mode
-    options.add_argument("--headless")
+    options.add_argument("--headless=new")
     # disable the AutomationControlled feature of Blink rendering engine
     options.add_argument('--disable-blink-features=AutomationControlled')
     # disable pop-up blocking
