@@ -394,7 +394,6 @@ def init_selenium_driver():
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', \
                           {get: () => undefined})")
 
-
     # enable stealth mode
     stealth(driver,
             languages=["en-US", "en"],
