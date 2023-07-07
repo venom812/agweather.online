@@ -14,7 +14,7 @@ class Command(BaseCommand):
         y = yadisk.YaDisk(token=os.environ["YANDEX_TOKEN"])
 
         date = datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
-        path = '/home/anton/agweather_venv/agweather.online/datascraper/'
+        path = '/home/django/django_venv/src/datascraper/'
         y.upload(f"{path}dump_db.json.zip",
                  f"agweather_dump_db/dump_db_{date}.json.zip")
 
