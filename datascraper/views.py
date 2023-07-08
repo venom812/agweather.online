@@ -20,4 +20,4 @@ def main(request):
     b = get_random_secret_key()
     print(b)
 
-    return HttpResponse(f"<br>It is main:</br><br><b>{a}</b></br><br>{b}</br>")
+    return HttpResponse(f"<br>It is main:</br><br></br><br>{b}</br>")
