@@ -87,9 +87,9 @@ DATABASES = {
     # }
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'agweather_db',
-        'USER': 'anton',
-        'PASSWORD': '+$NYfAVsP+9m',
+        'NAME': 'django_project_db',
+        'USER': 'django',
+        'PASSWORD': 'chi7yieho3zo',
         'HOST': 'localhost',
         'PORT': '',
     }
