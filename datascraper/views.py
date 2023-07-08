@@ -16,10 +16,6 @@ def main(request):
 
     load_dotenv()
 
-    # a = os.environ["TEST_SECRET"]
-    a = os.environ["PROXIES"]
-
-    print(a)
 
     b = get_random_secret_key()
     print(b)
