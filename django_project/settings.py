@@ -31,7 +31,7 @@ SECRET_KEY = os.environ["SECRET_KEY"]
 # DEBUG = True
 DEBUG = False
 
-ALLOWED_HOSTS = ['89.108.77.209', 'www.agweather.online', '127.0.0.1']
+ALLOWED_HOSTS = ['185.20.225.211', 'www.agweather.online', '127.0.0.1']
 # ALLOWED_HOSTS = []
 
 # Application definition
